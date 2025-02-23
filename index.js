@@ -68,4 +68,4 @@ client.on('messageCreate', (message) => {
 
 
 // Iniciar el bot
-client.login('MTM0MzMxODE4OTQzNzg3ODM2Mg.GeOhHR.Udzz7fvm5KmES0NQWbXjx6xG-TZCj2DznKpT6I');
+client.login('MTM0MzMxODE4OTQzNzg3ODM2Mg.GEsJla.O-993lQT8fBfFVYljdr2JSl03--LgrxC2eah5A');
