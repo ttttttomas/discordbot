@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Client, GatewayIntentBits, Collection } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
@@ -25,6 +26,10 @@ const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith
 for (const file of commandFiles) {
   const command = await import(`./commands/${file}`);
   client.commands.set(command.default.name, command.default);
+  if (!command.name) {
+    console.error(`El comando en ${file} no tiene nombre definido.`);
+    continue;
+}
 }
 
 // Registrar eventos
@@ -68,4 +73,5 @@ client.on('messageCreate', (message) => {
 
 
 // Iniciar el bot
-client.login('MTM0MzMxODE4OTQzNzg3ODM2Mg.GEsJla.O-993lQT8fBfFVYljdr2JSl03--LgrxC2eah5A');
+console.log("Token:", process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN);
