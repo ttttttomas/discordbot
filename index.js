@@ -73,5 +73,4 @@ client.on('messageCreate', (message) => {
 
 
 // Iniciar el bot
-console.log("Token:", process.env.DISCORD_TOKEN);
 client.login(process.env.DISCORD_TOKEN);
