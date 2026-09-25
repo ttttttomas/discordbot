@@ -106,7 +106,10 @@ export async function moveVoiceSession(guildId, userId, channelId) {
     );
 
     if (!session) {
-      await startVoiceSession(guildId, userId, channelId);
+      await run(
+        'INSERT INTO active_sessions (guild_id, user_id, channel_id, started_at) VALUES (?, ?, ?, ?)',
+        [guildId, userId, channelId, Date.now()],
+      );
       return 0;
     }
 
