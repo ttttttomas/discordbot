@@ -1,76 +1,73 @@
 import 'dotenv/config';
-import { Client, GatewayIntentBits, Collection } from 'discord.js';
+import { Client, Collection, GatewayIntentBits } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { initDatabase } from './database/db.js';
 
-// Obtener __dirname en ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Crear el cliente del bot
+await initDatabase();
+
 const client = new Client({
   intents: [
-    GatewayIntentBits.Guilds, // Para manejar servidores
-    GatewayIntentBits.GuildVoiceStates, // Para manejar estados de voz
-    GatewayIntentBits.GuildMessages, // Para leer mensajes en servidores
-    GatewayIntentBits.MessageContent, // Para leer el contenido de los mensajes
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
   ],
 });
 
-// Registrar comandos
 client.commands = new Collection();
+
 const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
+for (const file of fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'))) {
+  const module = await import(pathToFileURL(path.join(commandsPath, file)).href);
+  const command = module.default;
 
-for (const file of commandFiles) {
-  const command = await import(`./commands/${file}`);
-  client.commands.set(command.default.name, command.default);
-  if (!command.name) {
-    console.error(`El comando en ${file} no tiene nombre definido.`);
+  if (!command?.name || typeof command.execute !== 'function') {
+    console.warn(`Comando inválido ignorado: ${file}`);
     continue;
-}
-}
-
-// Registrar eventos
-const eventsPath = path.join(__dirname, 'events');
-const eventFiles = fs.readdirSync(eventsPath).filter((file) => file.endsWith('.js'));
-
-for (const file of eventFiles) {
-  const event = await import(`./events/${file}`);
-  event.default(client);
-}
-
-// Manejar mensajes
-client.on('messageCreate', (message) => {
-  console.log(`Mensaje recibido: ${message.content}`); // Depuración
-
-  // Ignorar mensajes de otros bots o que no empiecen con el prefijo "!"
-  if (message.author.bot || !message.content.startsWith('!')) return;
-
-  console.log(`Comando detectado: ${message.content}`); // Depuración
-
-  // Extraer el comando y los argumentos
-  const args = message.content.slice(1).split(/ +/);
-  const commandName = args.shift().toLowerCase();
-
-  // Obtener el comando
-  const command = client.commands.get(commandName);
-  if (!command) {
-    console.log(`Comando no reconocido: ${commandName}`); // Depuración
-    return;
   }
 
-  // Ejecutar el comando
+  client.commands.set(command.name, command);
+}
+
+const eventsPath = path.join(__dirname, 'events');
+for (const file of fs.readdirSync(eventsPath).filter((file) => file.endsWith('.js'))) {
+  const module = await import(pathToFileURL(path.join(eventsPath, file)).href);
+
+  if (typeof module.default !== 'function') {
+    console.warn(`Evento inválido ignorado: ${file}`);
+    continue;
+  }
+
+  module.default(client);
+}
+
+client.on('messageCreate', async (message) => {
+  if (message.author.bot || !message.guild || !message.content.startsWith('!')) return;
+
+  const args = message.content.slice(1).trim().split(/\s+/);
+  const commandName = args.shift()?.toLowerCase();
+  if (!commandName) return;
+
+  const command = client.commands.get(commandName);
+  if (!command) return;
+
   try {
-    console.log(`Ejecutando comando: ${commandName}`); // Depuración
-    command.execute(message, args);
+    await command.execute(message, args);
   } catch (error) {
-    console.error(`Error al ejecutar el comando ${commandName}:`, error);
-    message.reply('Hubo un error al ejecutar el comando. Por favor, intenta nuevamente.');
+    console.error(`Error al ejecutar !${commandName}:`, error);
+    await message.reply('Hubo un error al ejecutar el comando.');
   }
 });
 
+const token = process.env.DISCORD_TOKEN;
 
-// Iniciar el bot
-client.login(process.env.DISCORD_TOKEN);
+if (!token) {
+  throw new Error('Falta DISCORD_TOKEN en las variables de entorno.');
+}
+
+await client.login(token);
