@@ -1,17 +1,23 @@
 {
-  "name": "discordbot",
-  "version": "1.0.0",
-  "description": "",
+  "name": "discord-voice-time-bot",
+  "version": "2.0.0",
+  "description": "Bot de Discord para registrar tiempo semanal en canales de voz.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "check": "node --check index.js && node --check commands/voiceTime.js && node --check events/ready.js && node --check events/voiceStateUpdate.js && node --check database/db.js"
   },
-  "keywords": [],
+  "keywords": ["discord", "voice", "bot"],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "discord.js": "^14.18.0",
-    "dotenv": "^16.4.7"
+  "type": "module",
+  "engines": {
+    "node": ">=20"
   },
-  "type": "module"
+  "dependencies": {
+    "discord.js": "^14.19.3",
+    "dotenv": "^16.4.7",
+    "node-cron": "^3.0.3",
+    "sqlite3": "^5.1.7"
+  }
 }
