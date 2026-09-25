@@ -1,63 +1,52 @@
-import { fileURLToPath } from 'url';
-import path from 'path';
-import fs from 'fs';
+import { getLeaderboard } from '../database/db.js';
 
-// Obtener __dirname en ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+function formatTime(totalSeconds) {
+  const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
+  const days = Math.floor(safeSeconds / 86400);
+  const hours = Math.floor((safeSeconds % 86400) / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
 
-// Ruta al archivo JSON
-const dataPath = path.join(__dirname, '../database/voice_time.json');
-
-function timeInMinutes(time) {
-  return Math.floor(time / 60);
+  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 }
 
-function timeInHours(time) {
-  return Math.floor(time / 3600);
-}
+function splitMessage(lines, maxLength = 1900) {
+  const chunks = [];
+  let current = '';
 
-function timeInDays(time) {
-  return Math.floor(time / 86400);
+  for (const line of lines) {
+    if ((current + line + '\n').length > maxLength) {
+      if (current) chunks.push(current.trimEnd());
+      current = '';
+    }
+
+    current += `${line}\n`;
+  }
+
+  if (current) chunks.push(current.trimEnd());
+  return chunks;
 }
 
 export default {
   name: 'voicetime',
-  description: 'Muestra el tiempo en voz de los usuarios.',
+  description: 'Muestra el ranking semanal de tiempo en canales de voz.',
+
   async execute(message) {
-    console.log('Comando !voicetime recibido'); // Depuración
-    try {
-      if (!fs.existsSync(dataPath)) {
-        console.log('El archivo voice_time.json no existe. Creando uno nuevo...'); // Depuración
-        fs.writeFileSync(dataPath, JSON.stringify({}, null, 2));
-        return message.reply('No hay datos de tiempo en voz. Se ha creado un nuevo archivo.');
-      }
-  
-      const data = fs.readFileSync(dataPath, 'utf8');
-      console.log('Datos leídos del archivo:', data); // Depuración
-      const userVoiceTime = JSON.parse(data);
-  
-      if (Object.keys(userVoiceTime).length === 0) {
-        console.log('No hay datos de tiempo en voz.'); // Depuración
-        return message.reply('No hay datos de tiempo en voz.');
-      }
-  
-      const leaderboard = Object.entries(userVoiceTime)
-        .map(([userId, startTime]) => {
-          const timeSpent = Math.floor((Date.now() - startTime) / 1000);
-          const timeMinutes = timeInMinutes(timeSpent);
-          const timeHours = timeInHours(timeSpent);
-          console.log(timeMinutes)
-          const timeDays = timeInDays(timeSpent);
-          return `<@${userId}>: ${timeSpent} segundos, ${timeMinutes} minutos, ${timeHours} horas, ${timeDays} días`;
-        })
-        .join('\n');
-  
-      console.log('Enviando lista de tiempos en voz:', leaderboard); // Depuración1
-      message.channel.send(`**Tiempo en voz de los usuarios:**\n${leaderboard}`);
-    } catch (error) {
-      console.error('Error al leer el archivo JSON:', error);
-      message.reply('Hubo un error al procesar el comando. Por favor, intenta nuevamente.');
+    const rows = await getLeaderboard(message.guild.id);
+
+    if (!rows.length) {
+      await message.channel.send('Todavía no hay tiempo de voz registrado esta semana.');
+      return;
+    }
+
+    const lines = ['**Tiempo en voice esta semana:**'];
+
+    rows.slice(0, 50).forEach((row, index) => {
+      lines.push(`${index + 1}. <@${row.user_id}> — **${formatTime(row.total_seconds)}**`);
+    });
+
+    for (const chunk of splitMessage(lines)) {
+      await message.channel.send(chunk);
     }
   },
 };
